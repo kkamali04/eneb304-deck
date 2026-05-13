@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gunshot Detection Circuit - ENEB304 Final - Kian Kamali</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Bricolage+Grotesque:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+/* ═══════════ BRANDING SYSTEM: 4 THEMES ═══════════ */
+:root {
+  --theme: "01-circuit-lab";
+  --base: #0D1B2A; --panel: #1B2838; --electric: #00E5FF; --warm: #FFB74D;
+  --alert: #FF5252; --ink: #E8F0FE; --mute: #7B93A8; --dim: #2C3E50;
+  --line: rgba(0,229,255,0.08); --glow: rgba(0,229,255,0.12);
+}
+[data-theme="01"] { --theme: "01-circuit-lab"; --base: #0D1B2A; --panel: #1B2838; --electric: #00E5FF; --warm: #FFB74D; --alert: #FF5252; --ink: #E8F0FE; --mute: #7B93A8; --dim: #2C3E50; --line: rgba(0,229,255,0.08); }
+[data-theme="02"] { --theme: "02-warm-academic"; --base: #1A0A0A; --panel: #2D1818; --electric: #FF6B6B; --warm: #FFD93D; --alert: #FF8A65; --ink: #FFF0E6; --mute: #B09090; --dim: #4A3030; --line: rgba(255,107,107,0.1); }
+[data-theme="03"] { --theme: "03-oscilloscope"; --base: #0A1A0A; --panel: #1A2A1A; --electric: #00FF88; --warm: #FFAA00; --alert: #FF4444; --ink: #E8FFE8; --mute: #709070; --dim: #2A3A2A; --line: rgba(0,255,136,0.08); }
+[data-theme="04"] { --theme: "04-dark-matter"; --base: #0A0A0F; --panel: #161625; --electric: #C084FC; --warm: #F472B6; --alert: #FB7185; --ink: #E8E8F0; --mute: #8888AA; --dim: #2A2A3A; --line: rgba(192,132,252,0.08); }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--base); color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  overflow: hidden; width: 100vw; height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  cursor: pointer; user-select: none;
+}
+
+/* Slide System */
+#slides-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.slide {
+  position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 64px; opacity: 0; pointer-events: none;
+  transform: translateY(100vh); will-change: transform, opacity; overflow: hidden;
+}
+.slide.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.slide-content { position: relative; z-index: 2; width: 100%; max-width: 1200px; }
+
+/* Typography */
+.display { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(44px, 5.5vw, 84px); line-height: 1.05; letter-spacing: -0.02em; }
+.display .word, .title .word { display: inline-block; opacity: 0; filter: blur(8px); transform: translateY(20px); }
+.title { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 500; font-size: clamp(28px, 3.5vw, 48px); line-height: 1.15; }
+.title .word { filter: blur(4px); transform: translateY(12px); }
+.subtitle { font-weight: 300; font-size: clamp(15px, 1.6vw, 20px); line-height: 1.6; color: var(--mute); margin-top: 16px; max-width: 580px; opacity: 0; }
+.body-text { font-size: 15px; line-height: 1.75; color: var(--ink); opacity: 0.88; max-width: 56ch; }
+.mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); }
+.accent { color: var(--electric); }
+
+/* Hero */
+.hero-grid { display: grid; grid-template-columns: 1fr 480px; gap: 40px; align-items: center; min-height: 70vh; }
+.hero-left { display: flex; flex-direction: column; justify-content: center; }
+.badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 100px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: var(--warm); }
+.badge .dot { width: 6px; height: 6px; background: var(--electric); border-radius: 50%; animation: pulse-dot 2s ease-in-out infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1;box-shadow:0 0 0 0 var(--glow)}50%{opacity:0.6;box-shadow:0 0 0 8px transparent} }
+
+/* Layouts */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.two-col:has(.scope-card) { gap: 48px; }
+.three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+.three-col-wide { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 40px; margin-top: 40px; }
+
+/* Cards */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 28px; transition: all 0.3s ease; }
+.card:hover { border-color: var(--electric); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.card-title { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 500; font-size: 18px; margin-bottom: 10px; color: var(--ink); }
+.card-text { font-size: 14px; line-height: 1.6; color: var(--mute); }
+.scope-card { background: var(--panel); border: 2px solid var(--electric); border-radius: 16px; padding: 32px; }
+
+/* Stats */
+.stat-block { text-align: center; padding: 24px 12px; }
+.stat-number { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 700; font-size: clamp(44px, 5vw, 72px); color: var(--electric); line-height: 1; }
+.stat-label { font-size: 12px; color: var(--mute); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* Data table */
+.data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.data-table th { text-align: left; padding: 12px 16px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--warm); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 2px solid var(--electric); }
+.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--mute); }
+.data-table tr.highlight td { background: rgba(0,229,255,0.05); color: var(--ink); font-weight: 500; }
+
+/* Protocol badges */
+.badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.proto-badge { padding: 6px 14px; border: 1px solid var(--line); border-radius: 100px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--warm); background: rgba(255,183,77,0.05); }
+
+/* Terminal */
+.terminal { background: rgba(13,27,42,0.95); border: 1px solid var(--line); border-radius: 10px; padding: 24px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.8; color: var(--warm); overflow: hidden; min-height: 140px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); white-space: nowrap; }
+.terminal .cursor { display: inline-block; width: 8px; height: 16px; background: var(--electric); animation: blink 1s step-end infinite; vertical-align: middle; }
+@keyframes blink { 50%{opacity:0} }
+.terminal .comment { color: var(--dim); }
+.terminal .key { color: var(--electric); }
+.terminal .val { color: var(--warm); }
+.terminal::before { content: "circuit-lab:~"; display: block; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); color: var(--dim); letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+
+/* Circuit flow */
+.circuit-flow { display: flex; align-items: center; gap: 16px; padding: 20px 0; justify-content: center; flex-wrap: wrap; }
+.circuit-node { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 28px; text-align: center; min-width: 130px; }
+.circuit-node .node-icon { font-size: 28px; margin-bottom: 6px; }
+.circuit-node .node-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--mute); text-transform: uppercase; }
+.circuit-arrow { color: var(--electric); font-size: 20px; }
+
+/* Comparison bars */
+.bar-group { margin: 12px 0; }
+.bar-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+.bar-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mute); min-width: 90px; text-align: right; }
+.bar-track { flex: 1; height: 6px; background: var(--dim); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+.bar-val { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--warm); min-width: 70px; }
+
+/* Image containers */
+.img-frame { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.img-frame img { display: block; width: 100%; height: auto; }
+
+/* Navigation */
+.nav-dots { position: fixed; right: 28px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; pointer-events: none; }
+.nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); cursor: pointer; transition: all 0.3s ease; pointer-events: auto; }
+.nav-dot.active { background: var(--electric); transform: scale(1.4); box-shadow: 0 0 10px var(--electric); }
+.progress-bar { position: fixed; top: 0; left: 0; height: 2px; background: linear-gradient(90deg, var(--electric), var(--warm)); z-index: 1000; transition: width 0.4s ease; }
+.slide-counter { position: fixed; top: 20px; right: 28px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--dim); letter-spacing: 0.1em; z-index: 100; }
+.slide-counter span { color: var(--electric); }
+
+/* Speaker Notes */
+#notes-panel {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.92); border-top: 1px solid var(--line);
+  padding: 16px 40px 14px; display: none; z-index: 500;
+  font-size: 13px; color: var(--mute); line-height: 1.6;
+  max-height: 180px; overflow-y: auto; backdrop-filter: blur(8px);
+}
+#notes-panel.visible { display: block; }
+#notes-panel .notes-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--warm); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 6px; }
+
+/* Theme Switcher */
+.theme-switcher { position: fixed; bottom: 24px; left: 24px; display: flex; gap: 6px; z-index: 100; }
+.theme-btn { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: all 0.2s ease; }
+.theme-btn.active { border-color: var(--ink); transform: scale(1.15); }
+.theme-btn:hover { transform: scale(1.1); }
+
+/* Initially hidden for animation */
+.body-text, .card, .card-text, .scope-card, .circuit-node, .data-table tr, .proto-badge, .stat-number, .stat-label, .terminal, .bar-row, .img-frame {
+  opacity: 0;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .slide { padding: 32px 20px; }
+  .hero-grid { grid-template-columns: 1fr; }
+  .two-col { grid-template-columns: 1fr; gap: 32px; }
+  .three-col, .three-col-wide { grid-template-columns: 1fr; }
+  .nav-dots { display: none; }
+  .theme-switcher { bottom: 12px; left: 12px; }
+  .circuit-flow { gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+</style>
+</head>
+<body data-theme="01">
+<div class="progress-bar" id="progress-bar"></div>
+<div class="slide-counter" id="slide-counter"><span>1</span> / 15</div>
+
+<!-- Theme Switcher -->
+<div class="theme-switcher" id="theme-switcher">
+  <div class="theme-btn active" data-theme="01" style="background: #00E5FF;" title="Circuit Lab"></div>
+  <div class="theme-btn" data-theme="02" style="background: #FF6B6B;" title="Warm Academic"></div>
+  <div class="theme-btn" data-theme="03" style="background: #00FF88;" title="Oscilloscope"></div>
+  <div class="theme-btn" data-theme="04" style="background: #C084FC;" title="Dark Matter"></div>
+</div>
+
+<!-- Speaker Notes Panel -->
+<div id="notes-panel"><div class="notes-label">Speaker Notes [N]</div><div id="notes-text"></div></div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="nav-dots" id="nav-dots"></div>
+<div id="slides-container">
+
+<!-- ═════ SLIDE 1: HERO ═════ -->
+<section class="slide active" id="slide-1" data-slide="1" data-notes="Welcome everyone. We're Ephraim, Kian, and Aiden from ENEB304. Our project is a gunshot detection circuit built with a $2 microphone and a $0.50 transistor. Total cost: under $3. And it works at 10+ meters.">
+  <div class="slide-content">
+    <div class="hero-grid">
+      <div class="hero-left">
+        <div class="hero-meta"><div class="badge"><span class="dot"></span>ENEB304 · Microelectronics & Sensors · Spring 2026</div></div>
+        <h1 class="display" id="title-1">
+          <span class="word">Gunshot</span> <span class="word">Detection</span> <span class="word accent">Circuit</span>
+        </h1>
+        <p class="subtitle" id="sub-1">
+          A $3 BJT preamplifier with electret microphone that detects gunshots at 10+ meters. Single-stage common-emitter amplifier using the 2N2222A transistor.
+        </p>
+        <div style="margin-top:24px;display:flex;gap:12px;align-items:center;">
+          <span class="mono">Click · Space · Arrow keys to navigate</span>
+          <span class="mono" style="color:var(--electric)">Press N for notes</span>
+        </div>
+      </div>
+      <div class="hero-right" style="display:flex;align-items:center;justify-content:center;">
+        <svg width="480" height="480" viewBox="-240 -240 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="circuit-bg"><stop offset="0%" stop-color="var(--electric)" stop-opacity="0.08"/><stop offset="100%" stop-color="var(--base)" stop-opacity="0"/></radialGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="3"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <circle r="220" fill="url(#circuit-bg)"/>
+          <circle r="220" fill="none" stroke="var(--dim)" stroke-width="1"/>
+          <ellipse cx="0" cy="0" rx="220" ry="80" fill="none" stroke="var(--electric)" stroke-width="1.5" opacity="0.4"/>
+          <ellipse cx="0" cy="0" rx="80" ry="220" fill="none" stroke="var(--electric)" stroke-width="1.5" opacity="0.4"/>
+          <!-- Circuit traces -->
+          <g stroke="var(--warm)" stroke-width="2" fill="none" opacity="0.6">
+            <path d="M-180,0 L-80,0 L-60,-40 L-40,-40" class="globe-arc"/>
+            <path d="M-40,-40 L-20,-40 L-10,-20 L0,-20" class="globe-arc"/>
+            <path d="M0,-20 L10,-20 L30,20 L60,20 L80,0 L180,0" class="globe-arc"/>
+            <path d="M-180,80 L-120,80 L-100,60 L-60,60" class="globe-arc"/>
+          </g>
+          <circle cx="-80" cy="0" r="6" fill="var(--electric)" filter="url(#glow)"/>
+          <circle cx="0" cy="-20" r="6" fill="var(--electric)" filter="url(#glow)"/>
+          <circle cx="80" cy="0" r="6" fill="var(--warm)" filter="url(#glow)"/>
+          <circle cx="-60" cy="60" r="5" fill="var(--alert)" filter="url(#glow)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 2: THE PROBLEM ═════ -->
+<section class="slide" id="slide-2" data-slide="2" data-notes="Set up the problem. Why do we need a gunshot detector? Commercial systems cost $50-100K per square mile. We asked: can we build a functional one with $3 in parts? Spoiler: yes.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">01. The Question</div>
+    <h2 class="title"><span class="word">Can</span> <span class="word">a</span> <span class="word">$3</span> <span class="word">Circuit</span> <span class="word accent">Detect</span> <span class="word">Gunshots?</span></h2>
+    <div class="two-col" style="margin-top:40px;">
+      <div>
+        <p class="body-text" style="margin-bottom:16px;">
+          Commercial gunshot detection systems like ShotSpotter cost $50,000 to $100,000 per square mile to deploy. They use distributed sensor arrays, GPS synchronization, and cloud-based machine learning.
+        </p>
+        <p class="body-text">
+          But the fundamental building block — the analog front end that converts sound to measurable voltage — can be as simple as a microphone and one transistor.
+        </p>
+      </div>
+      <div class="three-col">
+        <div class="stat-block"><div class="stat-number" data-count="50">0</div><div class="stat-label">K-100K<br>Commercial cost/sq mi</div></div>
+        <div class="stat-block"><div class="stat-number" data-count="3">0</div><div class="stat-label">Dollars<br>Our circuit cost</div></div>
+        <div class="stat-block"><div class="stat-number" data-count="10">0</div><div class="stat-label">Meters+<br>Detection range</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 3: CIRCUIT DESIGN ═════ -->
+<section class="slide" id="slide-3" data-slide="3" data-notes="Here's our circuit. Microphone converts sound to voltage. Coupling capacitor blocks DC bias. The 2N2222A transistor amplifies ~400x. The oscilloscope captures the output. Explain the signal flow left to right.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">02. Circuit Design</div>
+    <h2 class="title"><span class="word">From</span> <span class="word">Sound</span> <span class="word accent">→</span> <span class="word">Voltage</span></h2>
+    <div class="circuit-flow" style="margin-top:32px;">
+      <div class="circuit-node">
+        <div class="node-icon">🎤</div>
+        <div class="node-label">CMA-4544PF-W<br>Electret Mic</div>
+      </div>
+      <span class="circuit-arrow">→</span>
+      <div class="circuit-node">
+        <div class="node-icon">⚡</div>
+        <div class="node-label">0.1μF Coupling<br>Capacitor</div>
+      </div>
+      <span class="circuit-arrow">→</span>
+      <div class="circuit-node" style="border-color:var(--electric);">
+        <div class="node-icon">🔺</div>
+        <div class="node-label">2N2222A NPN<br>CE Amplifier</div>
+      </div>
+      <span class="circuit-arrow">→</span>
+      <div class="circuit-node">
+        <div class="node-icon">📊</div>
+        <div class="node-label">Oscilloscope<br>50 kHz</div>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top:36px;">
+      <div class="card">
+        <div class="card-title" style="color:var(--electric);">Design Parameters</div>
+        <div class="card-text">
+          VCC = 9V · RC = 10kΩ · RB = 1MΩ · RE = 1kΩ<br>
+          IC ≈ 1mA · hFE = 100-300 · fT = 300 MHz<br>
+          Voltage Gain Av = -gm·RC = -385 V/V (~40 dB)
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--warm);">Why 2N2222A?</div>
+        <div class="card-text">
+          IC max = 1.0A (5x the 2N3904)<br>
+          Greater output swing and headroom<br>
+          VCE(sat) = 0.3V at 150mA<br>
+          Good input impedance match (2.6k ≈ mic 2.2k)
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 4: SIGNAL CAPTURES ═════ -->
+<section class="slide" id="slide-4" data-slide="4" data-notes="These are the three oscilloscope captures. Top to bottom: far distance at 10 meters, medium at 5 meters, and capacitor-coupled. Notice the medium distance gives the strongest peak at 1880 millivolts. All three show a sharp gunshot transient followed by damped oscillation.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">03. Signal Captures</div>
+    <h2 class="title"><span class="word">Three</span> <span class="word">Distances,</span> <span class="word accent">Three</span> <span class="word">Signals</span></h2>
+    <div style="margin-top:24px;" class="img-frame">
+      <img src="images/01_all_signals_comparison.png" alt="All signals comparison">
+    </div>
+    <div class="badge-row" style="justify-content:center;margin-top:12px;">
+      <span class="proto-badge">🔵 Far (10m): 1280 mV peak</span>
+      <span class="proto-badge">🟠 Medium (5m): 1880 mV peak</span>
+      <span class="proto-badge">🟢 Cap-Coupled: 1200 mV peak</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 5: PEAK ANALYSIS ═════ -->
+<section class="slide" id="slide-5" data-slide="5" data-notes="Zoom into the peak region. All three signals rise in less than 20 microseconds — that's limited by our 50 kHz sample rate. The actual gunshot impulse might be even sharper. The medium signal decays over 0.8 milliseconds, while the far signal decays in just 0.08 milliseconds.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">04. Peak Detail</div>
+    <h2 class="title"><span class="word">The</span> <span class="word accent">Impulse</span> <span class="word">Moment</span></h2>
+    <div class="two-col" style="margin-top:24px;">
+      <div class="img-frame"><img src="images/03_peak_detail.png" alt="Peak detail"></div>
+      <div>
+        <table class="data-table">
+          <tr><th>Condition</th><th>Peak (mV)</th><th>t_peak (ms)</th><th>Decay (ms)</th></tr>
+          <tr class="highlight"><td>Far (~10m)</td><td>1280</td><td>0.380</td><td>0.08</td></tr>
+          <tr class="highlight"><td>Medium (~5m)</td><td style="color:var(--electric);font-weight:700;">1880</td><td>0.000</td><td>0.80</td></tr>
+          <tr class="highlight"><td>Cap Coupled</td><td>1200</td><td>15.900</td><td>0.44</td></tr>
+        </table>
+        <p class="body-text" style="margin-top:16px;">
+          Rise time is under 20 μs in all cases — limited only by oscilloscope sample rate. The medium distance signal shows the most energy and longest decay characteristic.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 6: FFT FREQUENCY ═════ -->
+<section class="slide" id="slide-6" data-slide="6" data-notes="Frequency domain analysis. The far signal has energy concentrated around 2.3 kHz — high frequencies are absorbed by air over distance. The medium signal has a broader spectrum peaking at 6.9 kHz. The capacitor-coupled signal shows the high-pass filtering effect of the coupling capacitor, pushing energy to 20 kHz. This confirms the fL = 723 Hz cutoff we calculated.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">05. Frequency Domain</div>
+    <h2 class="title"><span class="word accent">FFT</span> <span class="word">Reveals</span> <span class="word">the</span> <span class="word">Spectrum</span></h2>
+    <div class="two-col" style="margin-top:24px;">
+      <div class="img-frame"><img src="images/04_fft_analysis.png" alt="FFT analysis"></div>
+      <div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-title" style="color:var(--electric);">Far: ~2.3 kHz</div>
+          <div class="card-text">Low-frequency energy dominates. Atmospheric absorption attenuates highs over 10m distance.</div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
+          <div class="card-title" style="color:var(--warm);">Medium: ~6.9 kHz</div>
+          <div class="card-text">Broader spectrum. More high-frequency content preserved at closer range.</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--alert);">Cap-Coupled: ~20 kHz</div>
+          <div class="card-text">High-pass filtering shifts energy upward. fL = 1/(2π·4.8k·0.1μF) = 332 Hz.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 7: ENVELOPE ═════ -->
+<section class="slide" id="slide-7" data-slide="7" data-notes="Hilbert envelope shows energy decay. Red line tracks instantaneous amplitude. The medium distance signal has the sharpest onset and highest peak-to-RMS ratio at 11.4. The capacitor-coupled signal maintains energy longer because the capacitor stores and releases charge.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">06. Energy Envelope</div>
+    <h2 class="title"><span class="word">How</span> <span class="word accent">Energy</span> <span class="word">Decays</span></h2>
+    <div style="margin-top:24px;" class="img-frame"><img src="images/06_envelope_analysis.png" alt="Envelope analysis"></div>
+    <p class="body-text" style="margin-top:16px;text-align:center;max-width:700px;margin-left:auto;margin-right:auto;">
+      Hilbert envelope tracks instantaneous amplitude. Medium distance shows most abrupt onset. Capacitor-coupled energy lingers due to RC time constant.
+    </p>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 8: METRICS ═════ -->
+<section class="slide" id="slide-8" data-slide="8" data-notes="Quantitative comparison. The medium distance dominates with 1880 mV peak. But look at RMS: the capacitor-coupled signal has the highest RMS at 259 mV because energy persists. The peak-to-RMS ratio tells us impulsiveness — medium is most impulsive at 11.4.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">07. Quantitative Comparison</div>
+    <h2 class="title"><span class="word">Numbers</span> <span class="word">That</span> <span class="word accent">Matter</span></h2>
+    <div class="two-col" style="margin-top:40px;">
+      <div>
+        <table class="data-table">
+          <tr><th>Parameter</th><th>Far (10m)</th><th>Medium (5m)</th><th>Cap-Coupled</th></tr>
+          <tr><td>Peak Voltage</td><td>1280 mV</td><td style="color:var(--electric);font-weight:700;">1880 mV</td><td>1200 mV</td></tr>
+          <tr><td>RMS Voltage</td><td>193 mV</td><td>165 mV</td><td style="color:var(--warm);">259 mV</td></tr>
+          <tr><td>Peak/RMS</td><td>6.6</td><td style="color:var(--electric);">11.4</td><td>4.6</td></tr>
+          <tr><td>Dom. Freq</td><td>2.3 kHz</td><td>6.9 kHz</td><td>20.0 kHz</td></tr>
+          <tr><td>Kurtosis</td><td>1.9</td><td style="color:var(--electric);">20.5</td><td>4.5</td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="bar-group">
+          <div class="bar-row"><span class="bar-label">Far</span><div class="bar-track"><div class="bar-fill" style="width:68%;background:var(--electric);"></div></div><span class="bar-val">1280 mV</span></div>
+          <div class="bar-row"><span class="bar-label">Medium</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--electric);"></div></div><span class="bar-val">1880 mV</span></div>
+          <div class="bar-row"><span class="bar-label">Cap</span><div class="bar-track"><div class="bar-fill" style="width:64%;background:var(--warm);"></div></div><span class="bar-val">1200 mV</span></div>
+        </div>
+        <p class="body-text" style="margin-top:24px;">
+          Peak voltage comparison. Medium distance is 47% higher than far, consistent with inverse-distance acoustic attenuation. Kurtosis of 20.5 confirms the sharpest impulse.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 9: CIRCUIT THEORY ═════ -->
+<section class="slide" id="slide-9" data-slide="9" data-notes="Let's go into the theory. Common-emitter amplifier. Voltage gain is -gm times RC, which gives us -385. That means a 5 mV microphone signal becomes roughly 1.9 volts at the output. The input impedance of 2.6k matches well with the microphone's 2.2k output impedance. The bandwidth from 332 Hz to 777 kHz easily covers the gunshot spectrum.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">08. Theory</div>
+    <h2 class="title"><span class="word accent">Why</span> <span class="word">This</span> <span class="word">Works</span></h2>
+    <div class="two-col" style="margin-top:28px;">
+      <div class="terminal" id="terminal-9">
+        <span class="comment"># Common-Emitter Amplifier</span><br>
+        <span class="key">Voltage Gain:</span><br>
+        Av = -gm * RC = -(IC/VT) * RC<br>
+        <span class="val">Av = -(1mA/26mV) * 10k = -385</span><br><br>
+        <span class="key">Input Impedance:</span><br>
+        Zin = (β+1) * re = 101 * 26Ω<br>
+        <span class="val">Zin = 2.6 kΩ ≈ Zmic = 2.2 kΩ ✓</span><br><br>
+        <span class="key">Bandwidth:</span><br>
+        fL = 332 Hz, fH = 777 kHz<br>
+        <span class="val">Covers 2-20 kHz gunshot spectrum</span><span class="cursor"></span>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-title" style="color:var(--electric);">~385x Voltage Gain</div>
+          <div class="card-text">5 mV mic signal → ~1.9 V output. Well above noise floor and easily detectable by a comparator.</div>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-title" style="color:var(--warm);">99.3% Power Transfer</div>
+          <div class="card-text">Near-perfect impedance match between microphone output (2.2k) and amplifier input (2.6k).</div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="color:var(--electric);">~40 dB Gain Budget</div>
+          <div class="card-text">Enough to amplify sub-millivolt acoustic signals to the 1-2V range for reliable detection.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 10: OVERLAY ═════ -->
+<section class="slide" id="slide-10" data-slide="10" data-notes="All three signals overlaid for direct comparison. Notice: the medium distance signal in orange has the sharpest initial transient. The far signal in blue shows clear attenuation. The capacitor-coupled signal in green shows a delayed peak — that's the RC time constant in action.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">09. Direct Comparison</div>
+    <h2 class="title"><span class="word">All</span> <span class="word">Three</span> <span class="word accent">Overlaid</span></h2>
+    <div style="margin-top:24px;" class="img-frame"><img src="images/02_signal_overlay.png" alt="Signal overlay"></div>
+    <p class="body-text" style="margin-top:16px;text-align:center;max-width:700px;margin-left:auto;margin-right:auto;">
+      Blue: far (attenuated but clearly detectable). Orange: medium (strongest, sharpest). Green: capacitor-coupled (delayed peak, reshaped by RC network).
+    </p>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 11: COMPONENTS ═════ -->
+<section class="slide" id="slide-11" data-slide="11" data-notes="Component deep dive. The CMA-4544PF-W microphone is omnidirectional with -44 dB sensitivity. The 2N2222A transistor handles up to 1 amp collector current and has a 300 MHz gain-bandwidth product. Combined cost: about $2 for active components.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">10. Components</div>
+    <h2 class="title"><span class="word">What's</span> <span class="word">Under</span> <span class="word">the</span> <span class="word accent">Hood</span></h2>
+    <div class="three-col-wide">
+      <div class="scope-card" style="text-align:center;">
+        <div style="font-size:36px;margin-bottom:12px;">🎤</div>
+        <div class="card-title">CMA-4544PF-W</div>
+        <div class="card-text" style="text-align:left;">
+          Omnidirectional electret<br>
+          -44 dBV/Pa sensitivity<br>
+          20 Hz - 20 kHz range<br>
+          2.2 kΩ output impedance<br>
+          <strong style="color:var(--electric);">Cost: ~$1.50</strong>
+        </div>
+      </div>
+      <div class="scope-card" style="text-align:center;">
+        <div style="font-size:36px;margin-bottom:12px;">🔺</div>
+        <div class="card-title">2N2222A NPN BJT</div>
+        <div class="card-text" style="text-align:left;">
+          hFE: 75-300 at 10mA<br>
+          fT: 300 MHz<br>
+          VCEO: 40V, IC max: 1.0A<br>
+          TO-92 package<br>
+          <strong style="color:var(--electric);">Cost: ~$0.30</strong>
+        </div>
+      </div>
+      <div class="scope-card" style="text-align:center;">
+        <div style="font-size:36px;margin-bottom:12px;">⚙️</div>
+        <div class="card-title">Passives</div>
+        <div class="card-text" style="text-align:left;">
+          RC: 10 kΩ collector<br>
+          RB: 1 MΩ base bias<br>
+          RE: 1 kΩ emitter<br>
+          C: 0.1 μF coupling<br>
+          <strong style="color:var(--electric);">Cost: ~$0.50</strong>
+        </div>
+      </div>
+    </div>
+    <p class="body-text" style="margin-top:24px;text-align:center;max-width:700px;margin-left:auto;margin-right:auto;">
+      Total active + passive component cost: <strong style="color:var(--electric);">under $3</strong>. The 2N2222A was chosen over the 2N3904 for its 5x higher collector current capability, giving greater output swing.
+    </p>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 12: METHODS ═════ -->
+<section class="slide" id="slide-12" data-slide="12" data-notes="How we captured the data. Digital oscilloscope at 50 kHz sample rate, 2500 points per capture, 50 millisecond window. Three test conditions: far at 10m, medium at 5m, and capacitor-coupled with an additional coupling capacitor. Trigger on transient signal.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">11. Experimental Method</div>
+    <h2 class="title"><span class="word">How</span> <span class="word">We</span> <span class="word accent">Measured</span></h2>
+    <div class="two-col" style="margin-top:32px;">
+      <div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-title">Data Acquisition</div>
+          <div class="card-text">Digital oscilloscope · 50 kHz sample rate · 2500 points · 50 ms window · Auto-trigger on transient · CH1 single-ended</div>
+        </div>
+        <div class="card" style="margin-bottom:10px;">
+          <div class="card-title">Processing Pipeline</div>
+          <div class="card-text">Python · NumPy · SciPy · Time-domain: peak, RMS, envelope · Frequency-domain: FFT, spectral peaks · Statistical: kurtosis, skewness</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Limitations</div>
+          <div class="card-text">50 kHz sample rate → Nyquist limit 25 kHz. Single-channel capture. Environmental conditions not controlled.</div>
+        </div>
+      </div>
+      <div class="terminal" id="terminal-12">
+        <span class="comment"># Data Processing</span><br>
+        <span class="key">import</span> numpy as np<br>
+        <span class="key">from</span> scipy.signal <span class="key">import</span> hilbert<br><br>
+        <span class="comment"># Time domain</span><br>
+        peak = np.max(np.abs(volts))<br>
+        rms = np.sqrt(np.mean(volts**2))<br><br>
+        <span class="comment"># Frequency domain</span><br>
+        fft = np.fft.rfft(volts)<br>
+        dom_freq = fft_freq[np.argmax(fft_mag)]<br><br>
+        <span class="comment"># Envelope</span><br>
+        env = np.abs(hilbert(volts))<span class="cursor"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 13: METRICS BAR CHART ═════ -->
+<section class="slide" id="slide-13" data-slide="13" data-notes="Bar chart comparison of peak, RMS, min, and max voltages across all three conditions. The medium distance leads in peak voltage, but the capacitor-coupled signal has the highest RMS. This tells us about signal quality versus detectability.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">12. Visual Comparison</div>
+    <h2 class="title"><span class="word">Signal</span> <span class="word accent">Metrics</span> <span class="word">at</span> <span class="word">a</span> <span class="word">Glance</span></h2>
+    <div style="margin-top:24px;" class="img-frame"><img src="images/05_metrics_comparison.png" alt="Metrics comparison" style="max-height:55vh;object-fit:contain;"></div>
+    <p class="body-text" style="margin-top:12px;text-align:center;">
+      Peak voltage matters for threshold detection. RMS matters for signal quality. Peak/RMS ratio tells us how impulsive the signal is.
+    </p>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 14: CONCLUSIONS ═════ -->
+<section class="slide" id="slide-14" data-slide="14" data-notes="Key findings. One: a single-stage BJT amplifier detects gunshots at 10+ meters with 1.2-1.9V peaks. Two: approximately 400x voltage gain with 40 dB budget. Three: frequency content from 2-20 kHz within our bandwidth. Four: excellent impedance matching. Future work includes a second gain stage, bandpass filtering, and microcontroller integration.">
+  <div class="slide-content">
+    <div class="mono" style="margin-bottom:12px;">13. Conclusions</div>
+    <h2 class="title"><span class="word">What</span> <span class="word">We</span> <span class="word accent">Learned</span></h2>
+    <div class="two-col" style="margin-top:32px;">
+      <div>
+        <div class="card" style="margin-bottom:8px;"><div class="card-title" style="color:var(--electric);">1. ✓ Detection at 10m+</div><div class="card-text">Single-stage CE amplifier produces 1.2-1.9V peaks from real gunshot events.</div></div>
+        <div class="card" style="margin-bottom:8px;"><div class="card-title" style="color:var(--electric);">2. ✓ ~400x Gain</div><div class="card-text">Measured gain consistent with theory (Av = -385). ~40 dB gain budget.</div></div>
+        <div class="card" style="margin-bottom:8px;"><div class="card-title" style="color:var(--electric);">3. ✓ 2-20 kHz Content</div><div class="card-text">Frequency content well within amplifier's 332 Hz - 777 kHz bandwidth.</div></div>
+        <div class="card"><div class="card-title" style="color:var(--electric);">4. ✓ Impedance Match</div><div class="card-text">2.6k input matches 2.2k mic output. 99.3% power transfer efficiency.</div></div>
+      </div>
+      <div>
+        <div class="scope-card">
+          <div class="card-title" style="font-size:20px;margin-bottom:16px;color:var(--warm);">Future Work</div>
+          <div class="card-text" style="font-size:14px;line-height:1.8;">
+            • Add 2N3904 second gain stage<br>
+            • Bandpass filter (100Hz-10kHz)<br>
+            • LM393 threshold comparator<br>
+            • Higher sample rate (>200kHz)<br>
+            • ESP32 microcontroller integration<br>
+            • Multi-sensor array deployment
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═════ SLIDE 15: THANK YOU ═════ -->
+<section class="slide" id="slide-15" data-slide="15" data-notes="Thank you for listening. Team: Ephraim, Kian, and Aiden. ENEB304 Microelectronics & Sensors, Spring 2026, Dr. Tiglao. We're happy to answer any questions about the circuit design, data analysis, or component selection.">
+  <div class="slide-content">
+    <div style="text-align:center;">
+      <div class="mono" style="margin-bottom:20px;">Thank You</div>
+      <h1 class="display"><span class="word">Questions</span> <span class="word accent">&</span> <span class="word">Answers</span></h1>
+      <p class="subtitle" style="margin:24px auto;max-width:500px;">
+        Ephraim, Kian Kamali, Aiden<br>
+        ENEB304 · Microelectronics & Sensors<br>
+        Dr. Nestor Michael C. Tiglao<br>
+        University of Maryland, Spring 2026
+      </p>
+      <div class="badge-row" style="justify-content:center;">
+        <span class="proto-badge">$3 Circuit</span>
+        <span class="proto-badge">10m+ Range</span>
+        <span class="proto-badge">~400x Gain</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// SLIDE SYSTEM
+// ═══════════════════════════════════════════════
+let currentSlide = 1;
+const totalSlides = 15;
+let isAnimating = false;
+let isQueueAnimating = false;
+let animationQueue = [];
+let currentQueueIndex = 0;
+let visitedSlides = new Set();
+let queueTimeout = null;
+const terminalTimers = new WeakMap();
+const ANIMATED_SEL = '.word, .subtitle, .body-text, .card, .card-text, .scope-card, .circuit-node, .data-table tr, .proto-badge, .stat-number[data-count], .stat-label, .terminal, .bar-row, .img-frame';
+
+function initSlides() {
+  for (let i = 1; i <= totalSlides; i++) {
+    const s = document.getElementById(`slide-${i}`);
+    if (i !== currentSlide) { gsap.set(s, { y: '100vh', opacity: 0 }); s.classList.remove('active'); }
+    else { gsap.set(s, { y: 0, opacity: 1 }); s.classList.add('active'); }
+  }
+  visitedSlides.add(1);
+  resetSlideAnimState(document.getElementById('slide-1'));
+}
+
+function getSlideTerminals(slide) { return Array.from(slide.querySelectorAll('.terminal')); }
+function prepareTerminal(t) { if (!t.dataset.orig) t.dataset.orig = t.innerHTML; }
+function cancelTyping(slide) { getSlideTerminals(slide).forEach(t => { const timer = terminalTimers.get(t); if (timer) clearTimeout(timer); terminalTimers.delete(t); t.dataset.typing = 'false'; }); }
+function resetTerminal(t) { prepareTerminal(t); const timer = terminalTimers.get(t); if (timer) clearTimeout(timer); terminalTimers.delete(t); t.dataset.typing = 'false'; t.innerHTML = ''; }
+
+function toArr(targets) { return Array.from(targets || []); }
+function setIf(targets, vars) { const arr = toArr(targets); if (arr.length) gsap.set(arr, vars); }
+function killIf(targets) { const arr = toArr(targets); if (arr.length) gsap.killTweensOf(arr); }
+
+function resetSlideAnimState(slide) {
+  if (!slide) return;
+  cancelTyping(slide);
+  killIf(slide.querySelectorAll(ANIMATED_SEL));
+  setIf(slide.querySelectorAll('.word'), { opacity: 0, filter: 'blur(8px)', y: 20 });
+  setIf(slide.querySelectorAll('.subtitle'), { opacity: 0, y: 15 });
+  setIf(slide.querySelectorAll('.body-text'), { opacity: 0, y: 10 });
+  setIf(slide.querySelectorAll('.card, .scope-card'), { opacity: 0, y: 30 });
+  setIf(slide.querySelectorAll('.card-text'), { opacity: 0, y: 8 });
+  setIf(slide.querySelectorAll('.circuit-node'), { opacity: 0, scale: 0.8 });
+  setIf(slide.querySelectorAll('.data-table tr'), { opacity: 0, x: -15 });
+  setIf(slide.querySelectorAll('.proto-badge'), { opacity: 0, scale: 0.8 });
+  setIf(slide.querySelectorAll('.stat-label'), { opacity: 0, y: 5 });
+  setIf(slide.querySelectorAll('.terminal'), { opacity: 0, y: 20 });
+  setIf(slide.querySelectorAll('.bar-row'), { opacity: 0, x: -10 });
+  setIf(slide.querySelectorAll('.img-frame'), { opacity: 0, y: 20 });
+  slide.querySelectorAll('.stat-number[data-count]').forEach(s => { s.textContent = '0'; gsap.set(s, { opacity: 0 }); });
+  getSlideTerminals(slide).forEach(resetTerminal);
+}
+
+function cancelActive(slide) {
+  isQueueAnimating = false;
+  if (queueTimeout) clearTimeout(queueTimeout);
+  queueTimeout = null;
+  if (!slide) return;
+  cancelTyping(slide);
+  gsap.killTweensOf(slide);
+  killIf(slide.querySelectorAll(ANIMATED_SEL));
+}
+
+function buildAnimQueue(slideNum) {
+  const slide = document.getElementById(`slide-${slideNum}`);
+  if (!slide) return [];
+  const queue = [];
+  const terminals = Array.from(slide.querySelectorAll('.terminal'));
+  let termQueued = false;
+  const doTerms = () => { if (!termQueued && terminals.length) { termQueued = true; revealTerminals(terminals); } };
+
+  const words = slide.querySelectorAll('.title .word, .display .word');
+  if (words.length) queue.push(() => gsap.fromTo(words, { opacity:0,filter:'blur(8px)',y:20 }, { opacity:1,filter:'blur(0px)',y:0,duration:0.55,stagger:0.05,ease:'power2.out' }));
+
+  const sub = slide.querySelector('.subtitle');
+  if (sub) queue.push(() => gsap.fromTo(sub, { opacity:0,y:15 }, { opacity:1,y:0,duration:0.7,ease:'power2.out' }));
+
+  const bodies = slide.querySelectorAll('.body-text');
+  if (bodies.length) queue.push(() => { gsap.fromTo(bodies, { opacity:0,y:10 }, { opacity:0.88,y:0,duration:0.6,stagger:0.15,ease:'power2.out' }); doTerms(); });
+
+  const cards = slide.querySelectorAll('.card, .scope-card');
+  if (cards.length) queue.push(() => { gsap.fromTo(cards, { opacity:0,y:30 }, { opacity:1,y:0,duration:0.6,stagger:0.1,ease:'power2.out',onComplete:()=>gsap.set(cards,{clearProps:'transform'})}); if(!bodies.length)doTerms(); });
+
+  const stats = slide.querySelectorAll('.stat-number[data-count]');
+  if (stats.length) queue.push(() => stats.forEach(s => { const t=parseInt(s.dataset.count); const obj={val:0}; gsap.to(s,{opacity:1,duration:0.3}); gsap.to(obj,{val:t,duration:1.5,ease:'power2.out',onUpdate:()=>{s.textContent=Math.round(obj.val)}}); }));
+
+  const tiers = slide.querySelectorAll('.circuit-node');
+  if (tiers.length) queue.push(() => gsap.fromTo(tiers, { opacity:0,scale:0.8 }, { opacity:1,scale:1,duration:0.5,stagger:0.12,ease:'back.out(1.7)' }));
+
+  const rows = slide.querySelectorAll('.data-table tr');
+  if (rows.length) queue.push(() => gsap.fromTo(rows, { opacity:0,x:-15 }, { opacity:1,x:0,duration:0.4,stagger:0.07,ease:'power2.out' }));
+
+  const badges = slide.querySelectorAll('.proto-badge');
+  if (badges.length) queue.push(() => gsap.fromTo(badges, { opacity:0,scale:0.8 }, { opacity:1,scale:1,duration:0.4,stagger:0.05,ease:'back.out(1.7)' }));
+
+  const bars = slide.querySelectorAll('.bar-row');
+  if (bars.length) queue.push(() => gsap.fromTo(bars, { opacity:0,x:-10 }, { opacity:1,x:0,duration:0.4,stagger:0.08,ease:'power2.out' }));
+
+  const imgs = slide.querySelectorAll('.img-frame');
+  if (imgs.length) queue.push(() => gsap.fromTo(imgs, { opacity:0,y:20 }, { opacity:1,y:0,duration:0.7,ease:'power2.out' }));
+
+  if (terminals.length && !bodies.length && !cards.length) queue.push(() => doTerms());
+
+  return queue;
+}
+
+function updateQueueProgress() { /* simplified */ }
+function advanceAnim() {
+  if (isQueueAnimating) return true;
+  if (currentQueueIndex < animationQueue.length) {
+    isQueueAnimating = true;
+    animationQueue[currentQueueIndex]();
+    currentQueueIndex++;
+    if (queueTimeout) clearTimeout(queueTimeout);
+    queueTimeout = setTimeout(() => { isQueueAnimating = false; }, 400);
+    return true;
+  }
+  return false;
+}
+
+function goToSlide(n) {
+  if (isAnimating || n < 1 || n > totalSlides || n === currentSlide) return;
+  isAnimating = true;
+  const cur = document.getElementById(`slide-${currentSlide}`);
+  const next = document.getElementById(`slide-${n}`);
+  const dir = n > currentSlide ? 1 : -1;
+  cancelActive(cur);
+  next.classList.remove('active');
+  gsap.set(next, { y: dir * 100 + 'vh', opacity: 0, visibility: 'hidden' });
+  resetSlideAnimState(next);
+  next.classList.add('active');
+  gsap.set(next, { visibility: 'visible' });
+
+  const tl = gsap.timeline({ onComplete: () => {
+    document.querySelectorAll('.slide.active').forEach(s => { if (s !== next) s.classList.remove('active'); });
+    gsap.set(cur, { visibility: 'hidden' });
+    gsap.set(next, { visibility: 'visible' });
+    resetSlideAnimState(cur);
+    isAnimating = false;
+    animationQueue = buildAnimQueue(n);
+    currentQueueIndex = 0;
+    visitedSlides.add(n);
+    setTimeout(() => advanceAnim(), 200);
+  }});
+  tl.to(cur, { y: dir * -100 + 'vh', opacity: 0, duration: 0.5, ease: 'power2.inOut', onComplete: () => cur.classList.remove('active') }, 0);
+  tl.to(next, { y: 0, opacity: 1, duration: 0.6, ease: 'power2.out' }, 0.1);
+  currentSlide = n;
+  updateNav();
+}
+
+function nextSlide() { if (currentSlide < totalSlides) goToSlide(currentSlide + 1); }
+function prevSlide() { if (currentSlide > 1) goToSlide(currentSlide - 1); }
+function updateNav() {
+  document.getElementById('slide-counter').innerHTML = `<span>${currentSlide}</span> / ${totalSlides}`;
+  document.getElementById('progress-bar').style.width = `${(currentSlide / totalSlides) * 100}%`;
+  document.querySelectorAll('.nav-dot').forEach((d, i) => d.classList.toggle('active', i + 1 === currentSlide));
+  // Update speaker notes
+  const slide = document.getElementById(`slide-${currentSlide}`);
+  const notes = slide ? slide.getAttribute('data-notes') || '' : '';
+  document.getElementById('notes-text').textContent = notes;
+}
+
+// Click handler
+document.addEventListener('click', (e) => {
+  if (isAnimating) return;
+  if (e.target.closest('.nav-dot, .theme-btn, a, button, input')) return;
+  const hadAnim = advanceAnim();
+  if (!hadAnim) nextSlide();
+});
+
+// Keyboard
+let lastKeyTime = 0;
+document.addEventListener('keydown', (e) => {
+  if (['ArrowDown','ArrowRight',' ','PageDown','Enter','ArrowUp','ArrowLeft','PageUp','Backspace','Home','End'].includes(e.key)) {
+    const now = Date.now();
+    if (now - lastKeyTime < 300) { e.preventDefault(); return; }
+    lastKeyTime = now;
+  }
+  if (['ArrowDown','ArrowRight',' ','PageDown','Enter'].includes(e.key)) { e.preventDefault(); const a = advanceAnim(); if (!a) nextSlide(); }
+  else if (['ArrowUp','ArrowLeft','PageUp','Backspace'].includes(e.key)) { e.preventDefault(); prevSlide(); }
+  else if (e.key === 'Home') { e.preventDefault(); goToSlide(1); }
+  else if (e.key === 'End') { e.preventDefault(); goToSlide(totalSlides); }
+  else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); document.getElementById('notes-panel').classList.toggle('visible'); }
+  else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  else if (e.key >= '0' && e.key <= '9') {
+    if (!window._buf) window._buf = ''; window._buf += e.key;
+    if (window._t) clearTimeout(window._t);
+    window._t = setTimeout(() => { const n = parseInt(window._buf); if (n >= 1 && n <= totalSlides) goToSlide(n); window._buf = ''; }, 400);
+  }
+});
+
+// Wheel
+let wheelOn = false;
+document.addEventListener('wheel', (e) => {
+  if (wheelOn || isAnimating || isQueueAnimating) return;
+  wheelOn = true; setTimeout(() => wheelOn = false, 500);
+  if (e.deltaY > 0) { const a = advanceAnim(); if (!a) nextSlide(); }
+  else prevSlide();
+}, { passive: true });
+
+// Nav dots
+const navDots = document.getElementById('nav-dots');
+for (let i = 1; i <= totalSlides; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'nav-dot' + (i === 1 ? ' active' : '');
+  dot.addEventListener('click', () => goToSlide(i));
+  navDots.appendChild(dot);
+}
+
+// Terminal typing
+function revealTerminals(terms) {
+  terms.forEach((t, i) => {
+    resetTerminal(t);
+    gsap.fromTo(t, { opacity:0,x:28,y:8 }, { opacity:1,x:0,y:0,duration:0.5,delay:i*0.08,ease:'power2.out',onComplete:()=>typeTerminal(t,4) });
+  });
+}
+function typeTerminal(term, speed) {
+  if (!term || term.dataset.typing === 'true') return;
+  prepareTerminal(term); term.dataset.typing = 'true'; term.innerHTML = '';
+  const tmpl = document.createElement('template'); tmpl.innerHTML = term.dataset.orig; const steps = [];
+  function walk(src, parent) {
+    if (src.nodeType === 3) { const tn = document.createTextNode(''); parent.appendChild(tn); src.textContent.split('').forEach(c => steps.push(() => tn.textContent += c)); return; }
+    if (src.nodeType !== 1) return;
+    if (src.classList && src.classList.contains('cursor')) return;
+    const clone = src.cloneNode(false); parent.appendChild(clone);
+    if (src.tagName === 'BR') return;
+    Array.from(src.childNodes).forEach(c => walk(c, clone));
+  }
+  Array.from(tmpl.content.childNodes).forEach(n => walk(n, term));
+  const cursor = document.createElement('span'); cursor.className = 'cursor'; term.appendChild(cursor);
+  let i = 0;
+  function tick() { if (i >= steps.length) { term.dataset.typing = 'false'; terminalTimers.delete(term); return; } steps[i++](); terminalTimers.set(term, setTimeout(tick, speed)); }
+  tick();
+}
+
+// Theme switching
+document.querySelectorAll('.theme-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.body.setAttribute('data-theme', btn.dataset.theme);
+  });
+});
+
+// Background canvas
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+const mouse = { x: -9999, y: -9999, active: false };
+function resize() { const dpr = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; canvas.width = Math.floor(W*dpr); canvas.height = Math.floor(H*dpr); canvas.style.width = W+'px'; canvas.style.height = H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); }
+resize();
+window.addEventListener('resize', resize);
+window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true; });
+window.addEventListener('mouseleave', () => { mouse.active = false; });
+
+for (let i = 0; i < 180; i++) particles.push({ x: Math.random()*W, y: Math.random()*H, vx: (Math.random()-0.5)*0.25, vy: (Math.random()-0.5)*0.25, size: Math.random()*2+0.5, pulse: Math.random()*Math.PI*2 });
+
+function animateBg() {
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--base').trim();
+  ctx.fillRect(0, 0, W, H);
+  particles.forEach(p => {
+    p.pulse += 0.03;
+    if (mouse.active) { const dx = p.x - mouse.x, dy = p.y - mouse.y, dist = Math.sqrt(dx*dx+dy*dy)||1; if (dist < 160) { const f = (160-dist)/160; p.vx += (dx/dist)*f*0.03; p.vy += (dy/dist)*f*0.03; } }
+    p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy;
+    if (p.x < 0) p.x = W; if (p.x > W) p.x = 0; if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size+Math.sin(p.pulse)*0.4, 0, Math.PI*2);
+    const c = getComputedStyle(document.body).getPropertyValue('--electric').trim();
+    ctx.fillStyle = c + '22'; ctx.fill();
+  });
+  requestAnimationFrame(animateBg);
+}
+
+initSlides();
+animateBg();
+animationQueue = buildAnimQueue(1);
+currentQueueIndex = 0;
+updateNav();
+</script>
+</body>
+</html>
